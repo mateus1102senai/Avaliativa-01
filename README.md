@@ -1,278 +1,121 @@
-# Aula: Configuração de Projeto Backend com Prisma
+1. Configuração do Prisma
 
-## Cabeçalho de Aula
+. Instalou o Prisma e o cliente Prisma com os comandos:
 
-**Habilidades Trabalhadas:**
-
-- Desenvolvimento de APIs RESTful com Node.js
-- Integração de ORM (Prisma) com projetos backend
-- Modelagem de dados e persistência
-- Tratamento de erros em aplicações assíncronas
-- Refatoração de código para padrões modernos
-
-## Introdução
-
-Nesta aula, vamos transformar um projeto backend que utiliza armazenamento em memória para um que utiliza banco de dados persistente através do Prisma ORM. Esta refatoração é um passo importante para criar aplicações escaláveis e robustas.
-
-## Passo a Passo da Configuração
-
-### 1. Instalando o Prisma
-
-Primeiro, instale os pacotes necessários e inicialize o Prisma:
-
-```bash
 npm install prisma @prisma/client
 npx prisma init
-```
 
-### 2. Configurando o arquivo .env
+. Configurou o arquivo .env para usar o banco de dados SQLite:
 
-Crie ou modifique o arquivo `.env` na raiz do projeto:
-
-```
 DATABASE_URL="file:./dev.db"
-```
 
-Este é o caminho para o banco SQLite que será usado no desenvolvimento.
+. Criou o arquivo schema.prisma e definiu os modelos Task e Jogo.
 
-### 3. Criando o arquivo schema.prisma
 
-O Prisma já criou o arquivo `prisma/schema.prisma`. Modifique-o conforme o modelo final:
 
-```prisma
-generator client {
-  provider = "prisma-client-js"
-}
 
-datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
-}
+2. Modelagem de Dados
+No arquivo schema.prisma, definiu o modelo Jogo com os seguintes campos:
 
-model Task {
-  id        Int     @id @default(autoincrement())
-  descricao String
-  concluida Boolean @default(false)
-  criadaEm  DateTime @default(now())
+id: Identificador único.
+title: Nome do jogo.
+price: Preço do jogo.
+releaseYear: Ano de lançamento.
+developer: Desenvolvedor do jogo.
+genres: Gêneros do jogo.
+platforms: Plataformas disponíveis.
+imageUrl: URL da imagem do jogo.
+createdAt e updatedAt: Datas de criação e atualização.
 
-  @@map("tasks")
-}
-```
 
-### 4. Criando o cliente Prisma
 
-Crie o arquivo `prisma/client.js`:
 
-```javascript
-import { PrismaClient } from "@prisma/client";
+3. Migrações do Prisma
 
-const prisma = new PrismaClient();
+. Criou e aplicou migrações para gerar as tabelas no banco de dados:
 
-export default prisma;
-```
-
-### 5. Executando a migração inicial
-
-Execute o comando para criar a migração e aplicá-la ao banco de dados:
-
-```bash
 npx prisma migrate dev --name init
-```
 
-### 6. Refatorando o modelo (tarefaModel.js)
 
-Modifique o arquivo `src/models/tarefaModel.js` para usar o Prisma:
 
-```javascript
-import prisma from "../../prisma/client.js";
 
-class TarefaModel {
-  getAll = async () => {
-    return await prisma.task.findMany();
-  };
+4. Implementação do Modelo jogosModel.js
 
-  create = async (descricao) => {
-    return await prisma.task.create({
-      data: {
-        descricao,
-      },
-    });
-  };
+. Criou o arquivo jogosModel.js para interagir com o banco de dados usando o Prisma.
 
-  update = async (id, concluida) => {
-    try {
-      return await prisma.task.update({
-        where: { id },
-        data: {
-          concluida: concluida !== undefined ? concluida : true,
-        },
-      });
-    } catch (error) {
-      // Se a tarefa não for encontrada, o Prisma lançará uma exceção
-      if (error.code === "P2025") {
-        return null;
-      }
-      throw error;
-    }
-  };
+. Implementou métodos como:
 
-  delete = async (id) => {
-    try {
-      await prisma.task.delete({
-        where: { id },
-      });
-      return true;
-    } catch (error) {
-      // Se a tarefa não for encontrada, o Prisma lançará uma exceção
-      if (error.code === "P2025") {
-        return false;
-      }
-      throw error;
-    }
-  };
+findAll: Retorna todos os jogos.
+findById: Retorna um jogo específico pelo ID.
+create: Cria um novo jogo.
+update: Atualiza um jogo existente.
+delete: Remove um jogo pelo ID.
 
-  getById = async (id) => {
-    return await prisma.task.findUnique({
-      where: { id },
-    });
-  };
-}
 
-export default new TarefaModel();
-```
 
-### 7. Refatorando o controlador (tarefaController.js)
+5. Implementação do Controlador JogosController.js
 
-Modifique o arquivo `src/controllers/tarefaController.js` para trabalhar com operações assíncronas:
+. Criou o arquivo JogosController.js para gerenciar as requisições HTTP.
 
-```javascript
-import tarefaModel from "../models/tarefaModel.js";
+. Implementou os métodos:
+getAllJogos: Retorna todos os jogos.
+getJogoById: Retorna um jogo específico pelo ID.
+createJogo: Cria um novo jogo.
+updateJogo: Atualiza um jogo existente.
+deleteJogo: Remove um jogo pelo 
 
-class TarefaController {
-  getAll = async (req, res) => {
-    try {
-      const tarefas = await tarefaModel.getAll();
-      res.json(tarefas);
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ erro: "Erro ao buscar tarefas" });
-    }
-  };
+. Adicionou tratamento de erros com try/catch para lidar com falhas nas operações.
 
-  create = async (req, res) => {
-    const { descricao } = req.body;
-    try {
-      if (!descricao) {
-        return res.status(400).json({ erro: "Descrição é obrigatória" });
-      }
-      const novaTarefa = await tarefaModel.create(descricao);
-      res.status(201).json(novaTarefa);
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ erro: "Erro ao criar tarefa" });
-    }
-  };
 
-  update = async (req, res) => {
-    const { id } = req.params;
-    const { concluida } = req.body;
 
-    try {
-      const tarefaAtualizada = await tarefaModel.update(
-        parseInt(id),
-        concluida
-      );
 
-      if (!tarefaAtualizada) {
-        return res.status(404).json({ erro: "Tarefa não encontrada" });
-      }
+6. Configuração das Rotas
 
-      res.json(tarefaAtualizada);
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ erro: "Erro ao atualizar tarefa" });
-    }
-  };
+. Criou o arquivo jogosRoutes.js para definir as rotas da API relacionadas aos jogos.
 
-  delete = async (req, res) => {
-    const { id } = req.params;
+. Configurou as rotas:
 
-    try {
-      const sucesso = await tarefaModel.delete(parseInt(id));
+GET /jogos: Retorna todos os jogos.
+GET /jogos/:id: Retorna um jogo específico pelo ID.
+POST /jogos: Cria um novo jogo.
+PUT /jogos/:id: Atualiza um jogo existente.
+DELETE /jogos/:id: Remove um jogo pelo ID.
 
-      if (!sucesso) {
-        return res.status(404).json({ erro: "Tarefa não encontrada" });
-      }
 
-      res.status(204).send();
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ erro: "Erro ao excluir tarefa" });
-    }
-  };
 
-  getById = async (req, res) => {
-    const { id } = req.params;
 
-    try {
-      const tarefa = await tarefaModel.getById(parseInt(id));
+7. Configuração do Servidor
 
-      if (!tarefa) {
-        return res.status(404).json({ erro: "Tarefa não encontrada" });
-      }
+. Configurou o servidor no arquivo server.js:
+Usou o Express para criar a API.
+Configurou o middleware express.json() para lidar com JSON no corpo das requisições.
+Adicionou as rotas de jogos com app.use("/jogos", jogoRoutes).
 
-      res.json(tarefa);
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ erro: "Erro ao buscar tarefa" });
-    }
-  };
-}
 
-export default new TarefaController();
-```
 
-### 8. Atualizando as rotas
 
-Se quiser implementar a nova rota `getById` no arquivo de rotas:
+8. Solução de Problemas
 
-```javascript
-import express from "express";
-import tarefaController from "../controllers/tarefaController.js";
-const router = express.Router();
+. Erro EADDRINUSE: Resolveu o problema de porta em uso identificando e encerrando processos que ocupavam a porta ou alterando a porta no código.
 
-router.get("/", tarefaController.getAll);
-router.get("/:id", tarefaController.getById); // Nova rota
-router.post("/", tarefaController.create);
-router.put("/:id", tarefaController.update);
-router.delete("/:id", tarefaController.delete);
+. Erro ERR_MODULE_NOT_FOUND: Corrigiu problemas de importação ajustando os caminhos e verificando a existência dos arquivos.
 
-export default router;
-```
+. Erro 500: Identificou e corrigiu problemas no modelo schema.prisma, como o campo platforms que estava incorretamente nomeado como plataforms.
 
-## Principais Mudanças na Refatoração
 
-1. **Operações Assíncronas**: Todas as operações de banco de dados são assíncronas, utilizando `async/await`
-2. **Tratamento de Erros**: Implementação de blocos try/catch para lidar com exceções do Prisma
-3. **Persistência de Dados**: Os dados agora são armazenados em um banco SQLite em vez de memória
-4. **Tipagem Automática**: O Prisma gera tipos TypeScript automaticamente para os modelos
 
-## Passos Após Git Clone
+9. Testes e Dados de Exemplo
 
-1. Instale as dependências do projeto:
+. Criou exemplos de objetos JSON para testar a rota POST /jogos e adicionar jogos ao banco de dados.
 
-```bash
-npm install
-```
 
-2. Crie o arquivo `.env` com a variável `DATABASE_URL` apontando para o banco de dados desejado.
 
-```
-DATABASE_URL="file:./dev.db"
-```
+10. Documentação
 
-3. Execute as migrações:
+. Atualizou o arquivo README.md com instruções detalhadas sobre:
 
-```bash
-npx prisma migrate dev
-```
+Configuração do Prisma.
+Criação de modelos e migrações.
+Configuração do servidor e rotas.
+Passos para executar o projeto após clonar o repositório.
+
